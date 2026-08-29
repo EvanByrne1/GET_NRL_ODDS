@@ -1,14 +1,25 @@
 name: NRL odds
 
 on:
-  schedule:
-    # GitHub cron is UTC. AEST is UTC+10, so subtract 10 from the AEST hour.
-    # Thu-Sun (NRL match days), roughly midday to 9pm AEST.
-    - cron: '0 2,4,6,8,10,11 * * 4,5,6,0'
-  workflow_dispatch:        # manual "Run workflow" button, works from GitHub mobile
+  workflow_dispatch:
+    inputs:
+      regions:
+        description: 'Books to pull'
+        type: choice
+        default: 'au,eu'
+        options:
+          - 'au,eu'      # + Pinnacle: sharp, low-margin, covers spreads & totals
+          - 'au'         # cheaper, AU books + Betfair only
+      props:
+        description: 'Include anytime tryscorer'
+        type: boolean
+        default: true
+      props_window:
+        description: 'Props only for games within N hours'
+        default: '8'
 
 permissions:
-  contents: write           # required so the job can push nrl.json back
+  contents: write
 
 concurrency:
   group: nrl-odds
@@ -19,16 +30,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - run: pip install requests
 
       - name: Fetch odds
         env:
-          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          ODDS_API_KEY:  ${{ secrets.ODDS_API_KEY }}
+          REGIONS:       ${{ inputs.regions }}
+          FETCH_PROPS:   ${{ inputs.props }}
+          PROPS_WINDOW:  ${{ inputs.props_window }}
         run: python fetch_odds.py
 
       - name: Commit if changed
