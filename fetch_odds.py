@@ -26,7 +26,7 @@ import requests
 
 BASE = "https://api.the-odds-api.com/v4"
 SPORT = "rugbyleague_nrl"
-REGIONS = "au"
+REGIONS = os.environ.get("REGIONS", "au").strip()
 CORE_MARKETS = "h2h,spreads,totals"
 
 # Betfair only appears if you ask for the exchange lay market explicitly.
@@ -39,7 +39,8 @@ PROP_MARKETS = [
     "player_try_scorer_last",
 ]
 
-PROPS_WINDOW_HOURS = 8      # only fetch props for games kicking off soon
+PROPS_WINDOW_HOURS = float(os.environ.get("PROPS_WINDOW", "8"))
+FETCH_PROPS = os.environ.get("FETCH_PROPS", "true").lower() != "false"
 MIN_CREDITS_FOR_PROPS = 200  # don't burn the last of the quota on props
 OUT = "nrl.json"
 
@@ -70,6 +71,7 @@ def main() -> int:
         {
             "apiKey": key,
             "regions": REGIONS,
+            "sharp_refs": sharp,
             "markets": f"{CORE_MARKETS},{LAY_MARKET}",
             "oddsFormat": "decimal",
         },
@@ -89,7 +91,7 @@ def main() -> int:
     except (TypeError, ValueError):
         budget_ok = False
 
-    if budget_ok:
+    if budget_ok and FETCH_PROPS:
         soon = [
             g
             for g in games
@@ -118,8 +120,18 @@ def main() -> int:
                     props_added += 1
                     props_market = mkt
                     break  # one working prop market per game is enough
+    elif not FETCH_PROPS:
+        print("  props disabled for this run")
     else:
         print(f"  skipping props (quota {remaining} below {MIN_CREDITS_FOR_PROPS})")
+
+    sharp = sorted({
+        b["key"]
+        for g in games
+        for b in g.get("bookmakers", [])
+        if b["key"] in ("betfair_ex_au", "pinnacle")
+    })
+    print(f"  sharp references present: {sharp or 'NONE — fair values will be weak'}")
 
     payload = {
         "meta": {
@@ -133,6 +145,7 @@ def main() -> int:
             "props_fetched_for": props_added,
             "props_market_used": props_market,
             "regions": REGIONS,
+            "sharp_refs": sharp,
             "markets": f"{CORE_MARKETS},{LAY_MARKET}",
         },
         "events": games,
