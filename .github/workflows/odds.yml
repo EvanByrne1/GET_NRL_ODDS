@@ -3,13 +3,6 @@ name: NRL odds
 on:
   workflow_dispatch:
     inputs:
-      regions:
-        description: 'Books to pull'
-        type: choice
-        default: 'au,eu'
-        options:
-          - 'au,eu'      # + Pinnacle: sharp, low-margin, covers spreads & totals
-          - 'au'         # cheaper, AU books + Betfair only
       props:
         description: 'Include anytime tryscorer'
         type: boolean
@@ -35,12 +28,21 @@ jobs:
           python-version: '3.12'
       - run: pip install requests
 
+      - name: Verify the file is the fixed one
+        run: |
+          if grep -q '"sharp_refs": sharp,' fetch_odds.py && \
+             ! grep -q 'sharp = sorted' fetch_odds.py; then
+            echo "::error::Old fetch_odds.py detected — the fix was not pushed."
+            exit 1
+          fi
+          echo "fetch_odds.py looks correct."
+
       - name: Fetch odds
         env:
-          ODDS_API_KEY:  ${{ secrets.ODDS_API_KEY }}
-          REGIONS:       ${{ inputs.regions }}
-          FETCH_PROPS:   ${{ inputs.props }}
-          PROPS_WINDOW:  ${{ inputs.props_window }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          REGIONS:      au
+          FETCH_PROPS:  ${{ inputs.props }}
+          PROPS_WINDOW: ${{ inputs.props_window }}
         run: python fetch_odds.py
 
       - name: Commit if changed
