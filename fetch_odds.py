@@ -71,7 +71,6 @@ def main() -> int:
         {
             "apiKey": key,
             "regions": REGIONS,
-            "sharp_refs": sharp,
             "markets": f"{CORE_MARKETS},{LAY_MARKET}",
             "oddsFormat": "decimal",
         },
